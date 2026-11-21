@@ -45,6 +45,85 @@ main {
   color: #3f3a33;
 }
 
+.table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.cost-table {
+  border-collapse: collapse;
+  inline-size: 100%;
+  --label-2: "金額";
+  --label-3: "根拠";
+}
+
+.cost-table caption {
+  caption-side: top;
+  text-align: start;
+  font-weight: 700;
+  margin-block-end: 0.4rem;
+}
+
+.cost-table th,
+.cost-table td {
+  text-align: start;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #ddd4c6;
+  vertical-align: top;
+}
+
+.cost-summary {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0;
+}
+
+.cost-summary div {
+  display: flex;
+  gap: 1rem;
+}
+
+.cost-summary dt {
+  min-inline-size: 8rem;
+}
+
+.cost-summary dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+@container (width < 36rem) {
+  .cost-table,
+  .cost-table thead,
+  .cost-table tbody,
+  .cost-table tr,
+  .cost-table th,
+  .cost-table td {
+    display: block;
+  }
+
+  .cost-table thead {
+    display: none;
+  }
+
+  .cost-table tr {
+    margin-block-end: 1rem;
+    border: 1px solid #ddd4c6;
+    background: #fff;
+  }
+
+  .cost-table td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-weight: 700;
+  }
+
+  .cost-table td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    font-weight: 700;
+  }
+}
+
 a {
   color: #0b4f6c;
 }

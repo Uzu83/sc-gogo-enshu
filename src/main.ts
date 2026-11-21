@@ -1,6 +1,7 @@
 import { inject } from "@vercel/analytics";
 import { remainingChars } from "./chars";
 import { citation } from "./citation";
+import { paintSupport, renderCostsPage, showingCosts } from "./costs-view";
 import examFile from "./exams.json";
 import { loadAnswer, saveAnswer } from "./storage";
 import {
@@ -47,16 +48,20 @@ function route(): { exam?: Exam; question?: Question } {
 }
 
 function render(): void {
+  if (showingCosts(location.pathname, location.hash)) {
+    renderCostsPage(main!, Date.now());
+    paintSupport(Date.now());
+    return;
+  }
   const { exam, question } = route();
   if (!exam) {
     renderHome();
-    return;
-  }
-  if (!question) {
+  } else if (!question) {
     renderExam(exam);
-    return;
+  } else {
+    renderQuestion(exam, question);
   }
-  renderQuestion(exam, question);
+  paintSupport(Date.now());
 }
 
 function renderHome(): void {
@@ -71,7 +76,7 @@ function renderHome(): void {
   for (const exam of data.exams) {
     const item = document.createElement("li");
     const link = document.createElement("a");
-    link.href = `#/${exam.id}`;
+    link.href = `/#/${exam.id}`;
     link.textContent = `${exam.year} ${exam.season} ${exam.section}`;
     item.append(link);
     list.append(item);
@@ -90,7 +95,7 @@ function renderExam(exam: Exam): void {
   for (const question of exam.questions) {
     const item = document.createElement("li");
     const link = document.createElement("a");
-    link.href = `#/${exam.id}/${question.number}`;
+    link.href = `/#/${exam.id}/${question.number}`;
     link.textContent = `問${question.number}`;
     item.append(link);
     list.append(item);
