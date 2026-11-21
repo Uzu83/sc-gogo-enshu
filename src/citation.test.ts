@@ -29,6 +29,13 @@ describe("exam data", () => {
     const spring = exams.exams[1];
     expect(autumn?.questions[2]?.prompts[0]).toMatchObject({ id: "s1-1", maxChars: 10 });
     expect(spring?.questions[0]?.prompts[1]).toMatchObject({ id: "s1-2", maxChars: 50 });
+    expect(spring?.questions[1]?.prompts).toEqual(
+      expect.arrayContaining([
+        { id: "s2-f", label: "設問2 f", maxChars: 20 },
+        { id: "s2-g", label: "設問2 g", maxChars: 20 },
+      ]),
+    );
+    expect(spring?.questions[1]?.prompts.some((prompt) => prompt.id === "s2")).toBe(false);
     expect(spring?.questions[3]?.prompts.some((prompt) => prompt.maxChars === 60)).toBe(true);
   });
 });

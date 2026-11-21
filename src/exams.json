@@ -386,9 +386,14 @@
               "maxChars": null
             },
             {
-              "id": "s2",
-              "label": "設問2",
-              "maxChars": null
+              "id": "s2-f",
+              "label": "設問2 f",
+              "maxChars": 20
+            },
+            {
+              "id": "s2-g",
+              "label": "設問2 g",
+              "maxChars": 20
             },
             {
               "id": "s3-1",

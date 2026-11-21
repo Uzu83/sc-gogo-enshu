@@ -6,8 +6,24 @@ export function answerKey(examId: string, questionNumber: number, promptId: stri
   return `${examId}:${questionNumber}:${promptId}`;
 }
 
+function storageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // 保存が拒否されても、解答欄の表示は続ける。
+  }
+}
+
 function readMap(): AnswerMap {
-  const raw = localStorage.getItem(ANSWER_KEY);
+  const raw = storageGet(ANSWER_KEY);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -35,5 +51,5 @@ export function saveAnswer(
 ): void {
   const map = readMap();
   map[answerKey(examId, questionNumber, promptId)] = value;
-  localStorage.setItem(ANSWER_KEY, JSON.stringify(map));
+  storageSet(ANSWER_KEY, JSON.stringify(map));
 }
