@@ -2,7 +2,15 @@ import { inject } from "@vercel/analytics";
 import { remainingChars } from "./chars";
 import { citation } from "./citation";
 import examFile from "./exams.json";
-import { NO_KEY_REASON, SEND_NOTICE, excerptForPrompt, extractPoints, presentGrade, type GradeView } from "./grade";
+import {
+  LIMIT_MESSAGE,
+  NO_KEY_REASON,
+  SEND_NOTICE,
+  excerptForPrompt,
+  extractPoints,
+  presentGrade,
+  type GradeView,
+} from "./grade";
 import { keepPageOnContentSkip, onSkipClick } from "./skip";
 import { loadAnswer, saveAnswer } from "./storage";
 import {
@@ -344,7 +352,9 @@ function renderGrade(question: Question, prompt: Prompt, area: HTMLTextAreaEleme
         }),
       });
       const payload: unknown = await response.json();
-      paintGrade(result, presentGrade(payload));
+      const view = presentGrade(payload);
+      paintGrade(result, view);
+      if (view.message === LIMIT_MESSAGE) enabled = false;
     } catch {
       result.textContent = "採点できませんでした。しばらくしてからもう一度押してください。";
     } finally {

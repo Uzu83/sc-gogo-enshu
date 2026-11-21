@@ -3,12 +3,15 @@ import {
   LIMIT_MESSAGE,
   MAX_CONTEXT,
   MAX_USER_ANSWER,
+  NO_COUNTER_REASON,
   NO_KEY_REASON,
+  type GradeLimiter,
   RateLimiter,
   parseModelJson,
   readLimits,
   tokyoDay,
 } from "./grade";
+import { limiterFromEnv } from "./grade-limit";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-4.1-nano";
 export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
@@ -30,7 +33,7 @@ type FetchImpl = typeof fetch;
 
 type HandlerDeps = {
   fetch?: FetchImpl;
-  limiter?: RateLimiter;
+  limiter?: GradeLimiter;
   env?: () => Env;
   now?: () => number;
 };
@@ -45,16 +48,24 @@ type GradeFields = {
 };
 
 export function createGradeHandler(deps: HandlerDeps = {}) {
-  const limiter = deps.limiter ?? new RateLimiter();
   const fetchImpl = deps.fetch ?? fetch;
   const readEnv = deps.env ?? readProcessEnv;
   const now = deps.now ?? Date.now;
+  const memory = new RateLimiter();
 
   return async function gradeHandler(req: GradeRequest, res: GradeResponse): Promise<void> {
     const env = readEnv();
+    const limiter = deps.limiter ?? limiterFromEnv(env, fetchImpl, now, memory);
     if (req.method === "GET") {
-      const enabled = hasKey(env);
-      res.status(200).json(enabled ? { enabled: true } : { enabled: false, reason: NO_KEY_REASON });
+      if (!hasKey(env)) {
+        res.status(200).json({ enabled: false, reason: NO_KEY_REASON });
+        return;
+      }
+      if (!limiter.configured) {
+        res.status(200).json({ enabled: false, reason: NO_COUNTER_REASON });
+        return;
+      }
+      res.status(200).json({ enabled: true });
       return;
     }
     if (req.method !== "POST") {
@@ -75,16 +86,30 @@ export function createGradeHandler(deps: HandlerDeps = {}) {
       res.status(503).json({ error: "unconfigured", reason: NO_KEY_REASON });
       return;
     }
+    if (!limiter.configured) {
+      res.status(503).json({ error: "unconfigured", reason: NO_COUNTER_REASON });
+      return;
+    }
 
     const day = tokyoDay(now());
     const ipHash = await hashIp(clientIp(req.headers), day);
-    if (!limiter.allow(day, ipHash, readLimits(env))) {
-      res.status(429).json({ error: "limit", message: LIMIT_MESSAGE });
+    try {
+      if (!(await limiter.allow(day, ipHash, readLimits(env)))) {
+        res.status(429).json({ error: "limit", message: LIMIT_MESSAGE });
+        return;
+      }
+    } catch {
+      res.status(503).json({ error: "bad" });
       return;
     }
 
     const completed = await complete(env, fields, fetchImpl);
     if (completed.kind === "limit") {
+      try {
+        await limiter.blockProvider(day);
+      } catch {
+        // The provider call already stopped. A failed write must not change this response.
+      }
       res.status(429).json({ error: "limit", message: LIMIT_MESSAGE });
       return;
     }

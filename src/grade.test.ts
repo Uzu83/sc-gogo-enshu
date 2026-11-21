@@ -41,24 +41,33 @@ describe("official text", () => {
 });
 
 describe("limits", () => {
-  it("resets on the Tokyo date and stops at the daily cap", () => {
+  it("resets on the Tokyo date and stops at the daily cap", async () => {
     expect(tokyoDay(Date.parse("2026-11-20T14:59:00Z"))).toBe("2026-11-20");
     expect(tokyoDay(Date.parse("2026-11-20T15:00:00Z"))).toBe("2026-11-21");
 
     const limiter = new RateLimiter();
     const limits = { daily: 2, perIp: 2 };
-    expect(limiter.allow("2026-11-20", "aaaa", limits)).toBe(true);
-    expect(limiter.allow("2026-11-20", "bbbb", limits)).toBe(true);
-    expect(limiter.allow("2026-11-20", "cccc", limits)).toBe(false);
-    expect(limiter.allow("2026-11-21", "cccc", limits)).toBe(true);
+    expect(await limiter.allow("2026-11-20", "aaaa", limits)).toBe(true);
+    expect(await limiter.allow("2026-11-20", "bbbb", limits)).toBe(true);
+    expect(await limiter.allow("2026-11-20", "cccc", limits)).toBe(false);
+    expect(await limiter.allow("2026-11-21", "cccc", limits)).toBe(true);
   });
 
-  it("stops one address before the global cap", () => {
+  it("stops one address before the global cap", async () => {
     const limiter = new RateLimiter();
     const limits = { daily: 10, perIp: 1 };
-    expect(limiter.allow("2026-11-21", "aaaa", limits)).toBe(true);
-    expect(limiter.allow("2026-11-21", "aaaa", limits)).toBe(false);
-    expect(limiter.allow("2026-11-21", "bbbb", limits)).toBe(true);
+    expect(await limiter.allow("2026-11-21", "aaaa", limits)).toBe(true);
+    expect(await limiter.allow("2026-11-21", "aaaa", limits)).toBe(false);
+    expect(await limiter.allow("2026-11-21", "bbbb", limits)).toBe(true);
+  });
+
+  it("keeps a provider block until the Tokyo day changes", async () => {
+    const limiter = new RateLimiter();
+    const limits = { daily: 10, perIp: 5 };
+    expect(await limiter.allow("2026-11-21", "aaaa", limits)).toBe(true);
+    await limiter.blockProvider("2026-11-21");
+    expect(await limiter.allow("2026-11-21", "bbbb", limits)).toBe(false);
+    expect(await limiter.allow("2026-11-22", "bbbb", limits)).toBe(true);
   });
 
   it("clamps env overrides", () => {

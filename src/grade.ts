@@ -7,6 +7,9 @@ export const LIMIT_MESSAGE = "今日はAI採点の上限に達しました。自
 
 export const NO_KEY_REASON = "AI採点のキーがサーバーにないため、このボタンは使えません。";
 
+export const NO_COUNTER_REASON =
+  "AI採点の回数を日をまたいで数える保存先がないため、このボタンは使えません。";
+
 export const DEFAULT_DAILY_LIMIT = 40;
 export const DEFAULT_IP_LIMIT = 5;
 /** Env overrides cannot raise the cap past these, so a typo cannot open the budget. */
@@ -65,15 +68,23 @@ function clampInt(raw: string | undefined, fallback: number, min: number, max: n
   return Math.min(max, Math.max(min, value));
 }
 
-export class RateLimiter {
+export type GradeLimits = { daily: number; perIp: number };
+
+export interface GradeLimiter {
+  readonly configured: boolean;
+  allow(day: string, ipHash: string, limits: GradeLimits): Promise<boolean>;
+  blockProvider(day: string): Promise<void>;
+}
+
+export class RateLimiter implements GradeLimiter {
+  readonly configured = true;
   private day = "";
   private counts = new Map<string, number>();
+  private providerBlocked = false;
 
-  allow(day: string, ipHash: string, limits: { daily: number; perIp: number }): boolean {
-    if (this.day !== day) {
-      this.counts.clear();
-      this.day = day;
-    }
+  async allow(day: string, ipHash: string, limits: GradeLimits): Promise<boolean> {
+    this.roll(day);
+    if (this.providerBlocked) return false;
     const globalKey = "g";
     const ipKey = `i:${ipHash}`;
     const globalCount = this.counts.get(globalKey) ?? 0;
@@ -82,6 +93,18 @@ export class RateLimiter {
     this.counts.set(globalKey, globalCount + 1);
     this.counts.set(ipKey, ipCount + 1);
     return true;
+  }
+
+  async blockProvider(day: string): Promise<void> {
+    this.roll(day);
+    this.providerBlocked = true;
+  }
+
+  private roll(day: string): void {
+    if (this.day === day) return;
+    this.counts.clear();
+    this.providerBlocked = false;
+    this.day = day;
   }
 }
 

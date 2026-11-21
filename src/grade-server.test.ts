@@ -102,6 +102,10 @@ describe("grade handler", () => {
     await handler(post(fields), res);
     expect(res.statusCode).toBe(429);
     expect(res.body).toMatchObject({ error: "limit", message: LIMIT_MESSAGE });
+    const again = mockRes();
+    await handler(post(fields), again);
+    expect(again.statusCode).toBe(429);
+    expect(again.body).toMatchObject({ error: "limit", message: LIMIT_MESSAGE });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
@@ -162,5 +166,62 @@ describe("grade handler", () => {
     await handler(post(fields), blocked);
     expect(blocked.statusCode).toBe(429);
     expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps the local daily cap across requests in one process", async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"score":"1/10","comment":"不足"}' } }] }), {
+        status: 200,
+      });
+    });
+    const handler = createGradeHandler({
+      fetch: fetchImpl as unknown as typeof fetch,
+      env: () => ({ OPENAI_API_KEY: "test-openai-key", GRADE_DAILY_LIMIT: "1", GRADE_IP_DAILY_LIMIT: "1" }),
+      now: () => Date.parse("2026-11-22T01:00:00Z"),
+    });
+    const first = mockRes();
+    await handler(post(fields), first);
+    expect(first.statusCode).toBe(200);
+    const second = mockRes();
+    await handler(post(fields), second);
+    expect(second.statusCode).toBe(429);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("does not call the provider on Vercel when the shared counter is missing", async () => {
+    const fetchImpl = vi.fn();
+    const handler = createGradeHandler({
+      fetch: fetchImpl as unknown as typeof fetch,
+      env: () => ({ OPENAI_API_KEY: "test-openai-key", VERCEL: "1" }),
+    });
+    const status = mockRes();
+    await handler({ method: "GET" }, status);
+    expect(status.body).toMatchObject({ enabled: false });
+    const res = mockRes();
+    await handler(post(fields), res);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toMatchObject({ error: "unconfigured" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not call the provider when the shared counter fails", async () => {
+    const fetchImpl = vi.fn();
+    const handler = createGradeHandler({
+      fetch: fetchImpl as unknown as typeof fetch,
+      env: () => ({ OPENAI_API_KEY: "test-openai-key" }),
+      limiter: {
+        configured: true,
+        allow() {
+          return Promise.reject(new Error("counter"));
+        },
+        blockProvider() {
+          return Promise.resolve();
+        },
+      },
+    });
+    const res = mockRes();
+    await handler(post(fields), res);
+    expect(res.statusCode).toBe(503);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

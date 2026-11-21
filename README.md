@@ -27,8 +27,11 @@ AI採点は Vercel Function の `/api/grade` です。キーはサーバーの�
 - `GEMINI_API_KEY` と `GEMINI_MODEL`（任意。OpenAI のキーがないときだけ使う）
 - `GRADE_DAILY_LIMIT`（既定 40、上限 200）
 - `GRADE_IP_DAILY_LIMIT`（既定 5、上限 50）
+- `UPSTASH_REDIS_REST_URL` と `UPSTASH_REDIS_REST_TOKEN`（Vercel では必須）
 
-OpenAI 側のプロジェクトと月の予算上限は、人がクレジットの範囲で設定します。上限かクレジット切れのときは、その日の AI 採点を止めて自己採点へ戻します。
+Vercel では関数ごとにメモリが分かれるため、日次の回数とクレジット切れの停止は Redis で共有します。この2つが無い本番では採点ボタンを無効にし、有料 API は呼びません。ローカルの `pnpm dev` は、この2つが無ければメモリ上の回数で動きます。
+
+OpenAI 側のプロジェクトと月の予算上限、Redis の作成は、人がクレジットの範囲で設定します。上限かクレジット切れのときは、その日の AI 採点を止めて自己採点へ戻します。
 
 ## 著作権
 
