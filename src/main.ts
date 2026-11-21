@@ -3,6 +3,7 @@ import { remainingChars } from "./chars";
 import { citation } from "./citation";
 import examFile from "./exams.json";
 import { NO_KEY_REASON, SEND_NOTICE, excerptForPrompt, extractPoints, presentGrade, type GradeView } from "./grade";
+import { keepPageOnContentSkip, onSkipClick } from "./skip";
 import { loadAnswer, saveAnswer } from "./storage";
 import {
   createTimer,
@@ -48,6 +49,7 @@ function route(): { exam?: Exam; question?: Question } {
 }
 
 function render(): void {
+  if (keepPageOnContentSkip(location.hash, main!.childElementCount > 0)) return;
   const { exam, question } = route();
   if (!exam) {
     renderHome();
@@ -408,6 +410,10 @@ function paintTimer(): void {
       : "";
   if (status.textContent !== notice) status.textContent = notice;
 }
+
+document.querySelector("a.skip")?.addEventListener("click", (event) => {
+  onSkipClick(event, main!);
+});
 
 window.addEventListener("hashchange", render);
 render();
