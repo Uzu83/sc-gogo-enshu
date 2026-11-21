@@ -293,7 +293,22 @@ async function requestJson(
   }
 }
 
+const QUOTA_MARKER = /insufficient_quota|billing_hard_limit|rate_limit_exceeded|RESOURCE_EXHAUSTED/i;
+
+// A finished grade can quote these words. Only a failed provider call can stop the day.
 function isQuota(status: number, body: string): boolean {
-  if (status === 429 || status === 402) return true;
-  return /insufficient_quota|billing_hard_limit|rate_limit_exceeded/i.test(body);
+  if (status >= 200 && status < 300) return false;
+  if (quotaMarkers(body).some((value) => QUOTA_MARKER.test(value))) return true;
+  return status === 429 || status === 402;
+}
+
+function quotaMarkers(body: string): string[] {
+  try {
+    const parsed = JSON.parse(body) as { error?: { code?: unknown; type?: unknown; status?: unknown } };
+    const error = parsed.error;
+    if (!error || typeof error !== "object") return [];
+    return [error.code, error.type, error.status].filter((value): value is string => typeof value === "string");
+  } catch {
+    return [];
+  }
 }

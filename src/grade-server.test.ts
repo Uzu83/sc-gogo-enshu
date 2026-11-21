@@ -91,6 +91,50 @@ describe("grade handler", () => {
     error.mockRestore();
   });
 
+  it("keeps grading when a successful comment mentions a quota code", async () => {
+    const content = JSON.stringify({
+      score: "6/10",
+      comment: "解答に rate_limit_exceeded という語がある",
+    });
+    const fetchImpl = vi.fn(async () => {
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    });
+    const handler = createGradeHandler({
+      fetch: fetchImpl as unknown as typeof fetch,
+      env: () => ({ OPENAI_API_KEY: "test-openai-key" }),
+      limiter: new RateLimiter(),
+      now: () => Date.parse("2026-11-22T02:00:00Z"),
+    });
+    const first = mockRes();
+    await handler(post(fields), first);
+    expect(first.statusCode).toBe(200);
+    expect(first.body).toMatchObject({ score: "6/10", comment: "解答に rate_limit_exceeded という語がある" });
+    const other = mockRes();
+    await handler({ ...post(fields), headers: { "x-forwarded-for": "203.0.113.9" } }, other);
+    expect(other.statusCode).toBe(200);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not stop the day when an error message only mentions a quota phrase", async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({ error: { message: "echoed rate_limit_exceeded", code: "invalid_request_error" } }),
+        { status: 400 },
+      );
+    });
+    const handler = createGradeHandler({
+      fetch: fetchImpl as unknown as typeof fetch,
+      env: () => ({ OPENAI_API_KEY: "test-openai-key" }),
+      limiter: new RateLimiter(),
+    });
+    const first = mockRes();
+    await handler(post(fields), first);
+    expect(first.statusCode).toBe(502);
+    const other = mockRes();
+    await handler({ ...post(fields), headers: { "x-forwarded-for": "198.51.100.8" } }, other);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("stops on the provider quota error without a second request", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ error: { code: "insufficient_quota" } }), { status: 429 }));
     const handler = createGradeHandler({
