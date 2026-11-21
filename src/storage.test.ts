@@ -33,4 +33,18 @@ describe("saveAnswer", () => {
     expect(loadAnswer("r07a", 1, "other")).toBe("");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("keeps the question usable when storage access is blocked", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new DOMException("blocked", "SecurityError");
+      },
+      setItem: () => {
+        throw new DOMException("blocked", "SecurityError");
+      },
+    });
+
+    expect(loadAnswer("r07h", 2, "s2-f")).toBe("");
+    expect(() => saveAnswer("r07h", 2, "s2-f", "新たな脆弱性が発見されたこと")).not.toThrow();
+  });
 });

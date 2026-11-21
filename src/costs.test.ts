@@ -4,6 +4,7 @@ import {
   costsRequested,
   findMonth,
   formatMonth,
+  fundingRefresh,
   isFunded,
   monthKey,
   supporterNames,
@@ -52,6 +53,25 @@ describe("costs", () => {
 
   it("lists only nicknames", () => {
     expect(supporterNames([{ nickname: "青い鉛筆" }, { nickname: "  " }])).toEqual(["青い鉛筆"]);
+  });
+
+  it("refreshes support when the page stays open across a Japan month boundary", () => {
+    const before = Date.parse("2026-11-30T14:59:00Z");
+    const after = Date.parse("2026-11-30T15:00:00Z");
+    expect(fundingRefresh("2026-11", before, true)).toEqual({
+      month: "2026-11",
+      changed: false,
+      rerenderCosts: false,
+    });
+    const onCosts = fundingRefresh("2026-11", after, true);
+    expect(onCosts).toEqual({ month: "2026-12", changed: true, rerenderCosts: true });
+    expect(fundingRefresh("2026-11", after, false)).toEqual({
+      month: "2026-12",
+      changed: true,
+      rerenderCosts: false,
+    });
+    expect(isFunded(findMonth(file, "2026-11"))).toBe(true);
+    expect(isFunded(findMonth(file, onCosts.month))).toBe(false);
   });
 
   it("treats /costs and the hash route as the costs page", () => {

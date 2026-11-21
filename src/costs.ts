@@ -38,6 +38,19 @@ export function monthKey(epochMs: number): string {
   }).toString();
 }
 
+/** 開いたまま月をまたいだとき、支援表示を戻し、運営費ページなら内訳も描き直す。 */
+export function fundingRefresh(
+  previousMonth: string,
+  epochMs: number,
+  onCostsPage: boolean,
+): { month: string; changed: boolean; rerenderCosts: boolean } {
+  const month = monthKey(epochMs);
+  const changed = !TemporalApi.PlainYearMonth.from(month).equals(
+    TemporalApi.PlainYearMonth.from(previousMonth),
+  );
+  return { month, changed, rerenderCosts: changed && onCostsPage };
+}
+
 export function formatMonth(key: string): string {
   const month = TemporalApi.PlainYearMonth.from(key);
   return `${month.year}年${month.month}月`;

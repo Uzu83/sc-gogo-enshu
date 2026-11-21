@@ -1,8 +1,10 @@
 import { inject } from "@vercel/analytics";
 import { remainingChars } from "./chars";
 import { citation } from "./citation";
+import { fundingRefresh, monthKey } from "./costs";
 import { paintSupport, renderCostsPage, showingCosts } from "./costs-view";
 import examFile from "./exams.json";
+import { keepPageOnContentSkip, onSkipClick } from "./skip";
 import { loadAnswer, saveAnswer } from "./storage";
 import {
   createTimer,
@@ -32,6 +34,7 @@ const modes = [
 
 let timer: TimerState = createTimer(150 * 60 * 1000, Date.now());
 let sawDone = false;
+let shownMonth = monthKey(Date.now());
 let tick = 0;
 
 function findExam(id: string): Exam | undefined {
@@ -48,9 +51,12 @@ function route(): { exam?: Exam; question?: Question } {
 }
 
 function render(): void {
+  if (keepPageOnContentSkip(location.hash, main!.childElementCount > 0)) return;
+  const now = Date.now();
   if (showingCosts(location.pathname, location.hash)) {
-    renderCostsPage(main!, Date.now());
-    paintSupport(Date.now());
+    renderCostsPage(main!, now);
+    paintSupport(now);
+    shownMonth = monthKey(now);
     return;
   }
   const { exam, question } = route();
@@ -61,7 +67,8 @@ function render(): void {
   } else {
     renderQuestion(exam, question);
   }
-  paintSupport(Date.now());
+  paintSupport(now);
+  shownMonth = monthKey(now);
 }
 
 function renderHome(): void {
@@ -286,6 +293,14 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return element;
 }
 
+function syncFunding(now: number): void {
+  const next = fundingRefresh(shownMonth, now, showingCosts(location.pathname, location.hash));
+  if (!next.changed) return;
+  shownMonth = next.month;
+  if (next.rerenderCosts) renderCostsPage(main!, now);
+  paintSupport(now);
+}
+
 function paintTimer(): void {
   const now = Date.now();
   const left = remainingMs(timer, now);
@@ -316,7 +331,15 @@ function paintTimer(): void {
   if (status.textContent !== notice) status.textContent = notice;
 }
 
+document.querySelector("a.skip")?.addEventListener("click", (event) => {
+  onSkipClick(event, main!);
+});
+
 window.addEventListener("hashchange", render);
 render();
-tick = window.setInterval(paintTimer, 1000);
+tick = window.setInterval(() => {
+  const now = Date.now();
+  paintTimer();
+  syncFunding(now);
+}, 1000);
 void tick;
