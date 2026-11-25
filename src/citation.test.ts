@@ -38,4 +38,16 @@ describe("exam data", () => {
     expect(spring?.questions[1]?.prompts.some((prompt) => prompt.id === "s2")).toBe(false);
     expect(spring?.questions[3]?.prompts.some((prompt) => prompt.maxChars === 60)).toBe(true);
   });
+
+  it("keeps the autumn question 2 location labels beside each model answer", () => {
+    const answer = exams.exams[0]?.questions[1]?.answer ?? "";
+    expect(answer).toContain(
+      "(i)と(ii)の間 B コインを攻撃者に移転する移転情報を記録したファイルを業務用メディア内に追加する。",
+    );
+    expect(answer).toContain(
+      "(vi)と(vii)の間 B コインを攻撃者に移転する署名済みの移転情報を記録したファイルを攻撃者に送信するとともに，業務用メディアから削除する。",
+    );
+    expect(answer).not.toContain("(ii)の間 メディア");
+    expect(answer).not.toContain("ファイ\n(vii)の間 ル");
+  });
 });
