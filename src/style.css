@@ -1,0 +1,156 @@
+:root {
+  color: #1c1915;
+  background: #f7f4ee;
+  font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  line-height: 1.6;
+}
+
+body {
+  margin: 0;
+}
+
+.skip {
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  top: 0.5rem;
+  transform: translateY(-150%);
+  background: #fff;
+  padding: 0.4rem 0.7rem;
+}
+
+.skip:focus {
+  transform: none;
+}
+
+.site-header,
+.site-footer,
+main {
+  margin-inline: auto;
+  max-width: 52rem;
+  padding-inline: 1rem;
+}
+
+.site-header {
+  padding-block: 1rem 0;
+}
+
+.brand {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.site-footer {
+  padding-block: 2rem 3rem;
+  color: #3f3a33;
+}
+
+a {
+  color: #0b4f6c;
+}
+
+a:focus-visible,
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 3px solid #0b4f6c;
+  outline-offset: 2px;
+}
+
+.exam-list,
+.question-list {
+  padding: 0;
+  list-style: none;
+}
+
+.exam-list li,
+.question-list li {
+  margin-block: 0.4rem;
+}
+
+.paper {
+  margin: 0 0 1rem;
+}
+
+.paper img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+
+.timer {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f4ee;
+  padding-block: 0.6rem;
+  border-bottom: 1px solid #ddd4c6;
+}
+
+.timer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: center;
+}
+
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  margin: 0.2rem 0;
+}
+
+.clock.low {
+  color: #7a3e00;
+  font-weight: 700;
+}
+
+progress {
+  inline-size: 12rem;
+  accent-color: #0b4f6c;
+}
+
+.field {
+  margin-block: 1rem 1.4rem;
+}
+
+.field label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 6rem;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.5rem;
+}
+
+.remain {
+  margin: 0.3rem 0 0;
+}
+
+.remain.over {
+  color: #8a1c1c;
+  font-weight: 700;
+}
+
+.official {
+  white-space: pre-wrap;
+  background: #fff;
+  padding: 0.8rem 1rem;
+  border: 1px solid #ddd4c6;
+}
+
+.note {
+  color: #3f3a33;
+}
+
+button {
+  font: inherit;
+  padding: 0.35rem 0.7rem;
+}
