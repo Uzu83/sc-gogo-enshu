@@ -124,17 +124,119 @@ export function extractPoints(answer: string): string {
   return (end < 0 ? after : after.slice(0, end)).trim().slice(0, MAX_CONTEXT);
 }
 
-export function excerptForPrompt(answer: string, label: string): string {
+type ParsedLabel = {
+  question: number;
+  sub: number | null;
+  marker: string;
+};
+
+/** 設問ラベルを、設問番号・枝番・空欄や語句に分ける。 */
+function parseLabel(label: string): ParsedLabel | null {
+  const match = /^設問\s*(\d+)\s*(?:\(\s*(\d+)\s*\))?\s*(?:\(\s*([^\s)]+)\s*\))?\s*([\s\S]*)$/.exec(
+    fold(label).trim(),
+  );
+  if (!match) return null;
+  const sub = match[2] === undefined ? null : Number(match[2]);
+  const marker = [match[3]?.trim() ?? "", match[4]?.trim() ?? ""].filter(Boolean).join(" ");
+  return { question: Number(match[1]), sub, marker };
+}
+
+function sliceSection(text: string, question: number): string | null {
+  const start = new RegExp(`設問\\s*${question}(?!\\d)`).exec(text);
+  if (!start) return null;
+  const rest = text.slice(start.index);
+  const next = /設問\s*(\d+)/g;
+  next.lastIndex = start[0].length;
+  let end = rest.length;
+  let match = next.exec(rest);
+  while (match) {
+    if (Number(match[1]) !== question) {
+      end = match.index;
+      break;
+    }
+    match = next.exec(rest);
+  }
+  return rest.slice(0, end);
+}
+
+function sliceSub(text: string, sub: number): string | null {
+  const marks = subMarks(text);
+  const current = marks.find((mark) => mark.n === sub);
+  if (!current) return null;
+  const following = marks.find((mark) => mark.index > current.index);
+  return text.slice(current.index, following?.index ?? text.length);
+}
+
+function subMarks(text: string): { n: number; index: number }[] {
+  const marks: { n: number; index: number }[] = [];
+  const pattern = /(?:^|[\n\s])\(\s*(\d+)\s*\)/g;
+  let match = pattern.exec(text);
+  while (match) {
+    const lead = /^\s*/.exec(match[0])?.[0].length ?? 0;
+    marks.push({ n: Number(match[1]), index: match.index + lead });
+    match = pattern.exec(text);
+  }
+  return marks;
+}
+
+function sliceAtMarker(text: string, marker: string, siblings: readonly string[]): string | null {
+  const index = findMarker(text, marker);
+  if (index < 0) return null;
+  const lines = text.slice(index).split("\n");
+  const kept = [lines[0] ?? ""];
+  for (const line of lines.slice(1)) {
+    if (isNextSlot(line, siblings)) break;
+    kept.push(line);
+  }
+  return kept.join("\n");
+}
+
+function findMarker(text: string, marker: string): number {
+  const wrapped = text.indexOf(`(${marker})`);
+  if (wrapped >= 0) return wrapped;
+  if ([...marker].length === 1) {
+    const match = new RegExp(`(?:^|[\\s(])(${escapeRegExp(marker)})(?=[\\s)]|$)`).exec(text);
+    if (!match) return -1;
+    return match.index + match[0].length - marker.length;
+  }
+  return text.indexOf(marker);
+}
+
+/** 同じ設問の次の空欄・枝番。ここから先は別の解答なので渡さない。 */
+function isNextSlot(line: string, siblings: readonly string[]): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("備考")) return trimmed.startsWith("備考");
+  if (siblings.some((marker) => trimmed.startsWith(marker))) return true;
+  if (/^\(\s*\d+\s*\)/.test(trimmed)) return true;
+  if (/^\(\s*[ぁ-んァ-ヶ]\s*\)/.test(trimmed)) return true;
+  if (/^[a-zA-Z]\s/.test(trimmed)) return true;
+  if (/^[ぁ-ん]\s/.test(trimmed)) return true;
+  return /^(する場合|しない場合|変更内容|サーバ名|項番\s*\d+)/.test(trimmed);
+}
+
+export function excerptForPrompt(
+  answer: string,
+  label: string,
+  siblingLabels: readonly string[] = [],
+): string {
   const folded = fold(answer);
-  const needle = fold(label).replace(/\s+/g, "");
-  if (!needle) return folded.slice(0, MAX_CONTEXT);
-  const pattern = [...needle].map((ch) => `${escapeRegExp(ch)}\\s*`).join("");
-  const match = new RegExp(pattern).exec(folded);
-  if (!match) return folded.slice(0, MAX_CONTEXT);
-  const rest = folded.slice(match.index);
-  const next = rest.slice(match[0].length).search(/設問\s*\d/);
-  const end = next < 0 ? Math.min(rest.length, 500) : match[0].length + next;
-  return rest.slice(0, end).trim().slice(0, MAX_CONTEXT);
+  const parsed = parseLabel(label);
+  if (!parsed) return folded.slice(0, MAX_CONTEXT);
+  const section = sliceSection(folded, parsed.question) ?? folded;
+  const scoped = parsed.sub === null ? section : (sliceSub(section, parsed.sub) ?? section);
+  const siblings = siblingLabels
+    .map((item) => parseLabel(item))
+    .filter(
+      (item): item is ParsedLabel =>
+        item !== null &&
+        item.question === parsed.question &&
+        item.sub === parsed.sub &&
+        item.marker !== "" &&
+        item.marker !== parsed.marker,
+    )
+    .map((item) => item.marker);
+  const focused = parsed.marker ? (sliceAtMarker(scoped, parsed.marker, siblings) ?? scoped) : scoped;
+  return focused.trim().slice(0, MAX_CONTEXT);
 }
 
 function escapeRegExp(char: string): string {

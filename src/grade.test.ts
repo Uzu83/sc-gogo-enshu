@@ -36,7 +36,41 @@ describe("official text", () => {
   it("keeps the 出題趣旨 and the matching answer line", () => {
     expect(extractPoints(question.answer)).toContain("セキュアプログラミング");
     expect(excerptForPrompt(question.answer, "設問1 a")).toContain("できない");
-    expect(excerptForPrompt(question.answer, "設問2（1）")).toContain("ロール管理");
+    const firstBranch = excerptForPrompt(question.answer, "設問2（1）");
+    expect(firstBranch).toContain("ロール管理");
+    expect(firstBranch).not.toContain("タスク名");
+  });
+
+  it("sends each blank its own sample answer", () => {
+    const deadline = excerptForPrompt(question.answer, "設問2（4） f");
+    expect(deadline).toContain("締切日");
+    expect(deadline).not.toContain("出題趣旨");
+    expect(deadline).not.toContain("管理者");
+
+    const upload = excerptForPrompt(question.answer, "設問2（5）");
+    expect(upload).toContain("アップロード");
+    expect(upload).not.toContain("ロール管理");
+
+    const spring = exams.exams.find((exam) => exam.id === "r07h")?.questions.find((item) => item.number === 2);
+    if (!spring) throw new Error("missing spring question 2");
+    const labels = spring.prompts.map((prompt) => prompt.label);
+    const currentValue = excerptForPrompt(spring.answer, "設問5（1） 現状値", labels);
+    expect(currentValue).toContain("公開サイト");
+    expect(currentValue).not.toContain("FIRST");
+    const epss = excerptForPrompt(spring.answer, "設問5（1） EPSS値", labels);
+    expect(epss).toContain("FIRST");
+    expect(epss).not.toContain("公開サイト");
+
+    for (const exam of exams.exams) {
+      for (const item of exam.questions) {
+        const names = item.prompts.map((prompt) => prompt.label);
+        for (const prompt of item.prompts) {
+          const excerpt = excerptForPrompt(item.answer, prompt.label, names);
+          expect(excerpt.trim().length, `${exam.id} 問${item.number} ${prompt.label}`).toBeGreaterThan(0);
+          expect(excerpt.includes("出題趣旨"), `${exam.id} 問${item.number} ${prompt.label}`).toBe(false);
+        }
+      }
+    }
   });
 });
 

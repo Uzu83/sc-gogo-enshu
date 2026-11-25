@@ -346,7 +346,11 @@ function renderGrade(question: Question, prompt: Prompt, area: HTMLTextAreaEleme
           prompt: prompt.label,
           maxChars: prompt.maxChars,
           points: extractPoints(question.answer),
-          officialAnswer: excerptForPrompt(question.answer, prompt.label),
+          officialAnswer: excerptForPrompt(
+            question.answer,
+            prompt.label,
+            question.prompts.map((item) => item.label),
+          ),
           commentary: question.commentary.slice(0, 1500),
           userAnswer,
         }),
