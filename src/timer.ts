@@ -57,12 +57,15 @@ export function isFinished(state: TimerState, now: number): boolean {
   return remainingMs(state, now) === 0 && state.durationMs > 0;
 }
 
-/** 残り時間を digital 表示にする。Temporal.Duration は不変。 */
+/** 残り時間を H:MM:SS にする。Temporal.Duration は不変。 */
 export function formatRemaining(ms: number): string {
-  const seconds = Math.max(0, Math.ceil(ms / 1000));
-  const duration = TemporalApi.Duration.from({ seconds }).round({
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const duration = TemporalApi.Duration.from({ seconds: totalSeconds }).round({
     largestUnit: "hour",
     smallestUnit: "second",
   });
-  return duration.toLocaleString("ja-JP", { style: "digital" });
+  // toLocaleString の digital は Intl.DurationFormat が無いと ISO（PT0S）になる。
+  const minutes = String(duration.minutes).padStart(2, "0");
+  const seconds = String(duration.seconds).padStart(2, "0");
+  return `${duration.hours}:${minutes}:${seconds}`;
 }
