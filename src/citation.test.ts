@@ -50,4 +50,12 @@ describe("exam data", () => {
     expect(answer).not.toContain("(ii)の間 メディア");
     expect(answer).not.toContain("ファイ\n(vii)の間 ル");
   });
+
+  it("keeps the spring question 1 model answer without the furigana fragment", () => {
+    const answer = exams.exams[1]?.questions[0]?.answer ?? "";
+    expect(answer).toContain(
+      "設問４ 利用しているソフトウェアやそのバージョンが明確になり，脆弱性の影響有無\nを容易に把握できるから",
+    );
+    expect(answer).not.toContain("設問４ ぜい");
+  });
 });
