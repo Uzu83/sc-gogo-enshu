@@ -2,6 +2,15 @@ import { inject } from "@vercel/analytics";
 import { remainingChars } from "./chars";
 import { citation } from "./citation";
 import examFile from "./exams.json";
+import {
+  LIMIT_MESSAGE,
+  NO_KEY_REASON,
+  SEND_NOTICE,
+  excerptForPrompt,
+  extractPoints,
+  presentGrade,
+  type GradeView,
+} from "./grade";
 import { keepPageOnContentSkip, onSkipClick } from "./skip";
 import { loadAnswer, saveAnswer } from "./storage";
 import {
@@ -14,7 +23,7 @@ import {
   resumeTimer,
   type TimerState,
 } from "./timer";
-import type { Exam, ExamFile, Question } from "./types";
+import type { Exam, ExamFile, Prompt, Question } from "./types";
 
 inject();
 
@@ -244,6 +253,7 @@ function renderForm(exam: Exam, question: Question): HTMLFormElement {
     }
     field.append(label, area);
     if (prompt.maxChars !== null) field.append(remain);
+    field.append(renderGrade(question, prompt, area));
     form.append(field);
   }
 
@@ -273,6 +283,108 @@ function renderForm(exam: Exam, question: Question): HTMLFormElement {
   official.append(answerHeading, answer, commentHeading, comment, self);
   form.append(reveal, official);
   return form;
+}
+
+let gradeAvailability: Promise<{ enabled: boolean; reason?: string }> | null = null;
+
+function loadGradeAvailability(): Promise<{ enabled: boolean; reason?: string }> {
+  if (!gradeAvailability) {
+    gradeAvailability = fetch("/api/grade")
+      .then((response) => response.json() as Promise<{ enabled?: boolean; reason?: string }>)
+      .then((payload) => ({
+        enabled: payload.enabled === true,
+        reason: payload.enabled === true ? undefined : payload.reason || NO_KEY_REASON,
+      }))
+      .catch(() => ({ enabled: false, reason: "AI採点の状態を確認できません。" }));
+  }
+  return gradeAvailability;
+}
+
+function renderGrade(question: Question, prompt: Prompt, area: HTMLTextAreaElement): HTMLElement {
+  const box = document.createElement("div");
+  box.className = "grade";
+  const notice = document.createElement("p");
+  notice.className = "note";
+  notice.id = `${area.id}-grade-notice`;
+  notice.textContent = SEND_NOTICE;
+  const reason = document.createElement("p");
+  reason.className = "note";
+  reason.id = `${area.id}-grade-reason`;
+  const result = document.createElement("div");
+  result.className = "grade-result";
+  result.id = `${area.id}-grade-result`;
+  result.setAttribute("role", "status");
+  let enabled = false;
+  const gradeButton = button("AIで採点（目安）", () => {
+    void run();
+  });
+  gradeButton.disabled = true;
+  gradeButton.setAttribute("aria-describedby", `${notice.id} ${reason.id}`);
+  box.append(notice, gradeButton, reason, result);
+
+  void loadGradeAvailability().then((state) => {
+    enabled = state.enabled;
+    gradeButton.disabled = !enabled;
+    reason.textContent = enabled ? "" : state.reason ?? NO_KEY_REASON;
+  });
+
+  async function run(): Promise<void> {
+    if (!enabled) return;
+    const userAnswer = area.value.trim();
+    result.replaceChildren();
+    if (!userAnswer) {
+      result.textContent = "解答を書いてから採点してください。";
+      return;
+    }
+    gradeButton.disabled = true;
+    result.textContent = "採点しています…";
+    try {
+      const response = await fetch("/api/grade", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.label,
+          maxChars: prompt.maxChars,
+          points: extractPoints(question.answer),
+          officialAnswer: excerptForPrompt(
+            question.answer,
+            prompt.label,
+            question.prompts.map((item) => item.label),
+          ),
+          commentary: question.commentary.slice(0, 1500),
+          userAnswer,
+        }),
+      });
+      const payload: unknown = await response.json();
+      const view = presentGrade(payload);
+      paintGrade(result, view);
+      if (view.message === LIMIT_MESSAGE) enabled = false;
+    } catch {
+      result.textContent = "採点できませんでした。しばらくしてからもう一度押してください。";
+    } finally {
+      gradeButton.disabled = !enabled;
+    }
+  }
+
+  return box;
+}
+
+function paintGrade(result: HTMLElement, view: GradeView): void {
+  result.replaceChildren();
+  if (view.message) {
+    const message = document.createElement("p");
+    message.textContent = view.message;
+    result.append(message);
+    return;
+  }
+  const disclaimer = document.createElement("p");
+  disclaimer.className = "note grade-disclaimer";
+  disclaimer.textContent = view.disclaimer ?? "";
+  const score = document.createElement("p");
+  score.textContent = `目安: ${view.score ?? ""}`;
+  const comment = document.createElement("p");
+  comment.textContent = view.comment ?? "";
+  result.append(disclaimer, score, comment);
 }
 
 function button(text: string, onClick: () => void): HTMLButtonElement {

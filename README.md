@@ -4,7 +4,7 @@
 
 # SC午後 過去問演習教室
 
-IPA 情報処理安全確保支援士試験の午後過去問を、ブラウザで演習するサイトです。会員登録はありません。書いた解答はブラウザの localStorage だけに残り、サーバーには送りません。
+IPA 情報処理安全確保支援士試験の午後過去問を、ブラウザで演習するサイトです。会員登録はありません。書いた解答はブラウザの localStorage に残します。AI採点を押したときだけ、その設問の解答を採点のために送ります。サーバーはその解答を保存せず、ログにも出しません。
 
 直近2回（令和7年度 秋期・春期）の午後4問を収録しています。問題冊子は [IPA の過去問題](https://www.ipa.go.jp/shiken/mondai-kaiotu/index.html) で公開されている PDF のページ画像です。解答例と採点講評も同じ公開 PDF からテキスト化しています。
 
@@ -18,7 +18,20 @@ pnpm test
 pnpm build
 ```
 
-`dist` を Vercel の静的サイトとして置けます。アクセス解析は Vercel Web Analytics で、本番ビルドの閲覧だけを数えます。解答の本文は送りません。
+`dist` を Vercel に置けます。アクセス解析は Vercel Web Analytics で、本番ビルドの閲覧だけを数えます。解答の本文は解析に送りません。
+
+AI採点は Vercel Function の `/api/grade` です。キーはサーバーの環境変数だけに置きます。
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`（省略時は `gpt-4.1-nano`）
+- `GEMINI_API_KEY` と `GEMINI_MODEL`（任意。OpenAI のキーがないときだけ使う）
+- `GRADE_DAILY_LIMIT`（既定 40、上限 200）
+- `GRADE_IP_DAILY_LIMIT`（既定 5、上限 50）
+- `UPSTASH_REDIS_REST_URL` と `UPSTASH_REDIS_REST_TOKEN`（Vercel では必須）
+
+Vercel では関数ごとにメモリが分かれるため、日次の回数とクレジット切れの停止は Redis で共有します。この2つが無い本番では採点ボタンを無効にし、有料 API は呼びません。ローカルの `pnpm dev` は、この2つが無ければメモリ上の回数で動きます。
+
+OpenAI 側のプロジェクトと月の予算上限、Redis の作成は、人がクレジットの範囲で設定します。上限かクレジット切れのときは、その日の AI 採点を止めて自己採点へ戻します。
 
 ## 著作権
 
