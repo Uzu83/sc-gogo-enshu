@@ -1,6 +1,8 @@
 import { inject } from "@vercel/analytics";
 import { remainingChars } from "./chars";
 import { citation } from "./citation";
+import { fundingRefresh, monthKey } from "./costs";
+import { paintSupport, renderCostsPage, showingCosts } from "./costs-view";
 import examFile from "./exams.json";
 import { keepPageOnContentSkip, onSkipClick } from "./skip";
 import { loadAnswer, saveAnswer } from "./storage";
@@ -32,6 +34,7 @@ const modes = [
 
 let timer: TimerState = createTimer(150 * 60 * 1000, Date.now());
 let sawDone = false;
+let shownMonth = monthKey(Date.now());
 let tick = 0;
 
 function findExam(id: string): Exam | undefined {
@@ -49,16 +52,23 @@ function route(): { exam?: Exam; question?: Question } {
 
 function render(): void {
   if (keepPageOnContentSkip(location.hash, main!.childElementCount > 0)) return;
+  const now = Date.now();
+  if (showingCosts(location.pathname, location.hash)) {
+    renderCostsPage(main!, now);
+    paintSupport(now);
+    shownMonth = monthKey(now);
+    return;
+  }
   const { exam, question } = route();
   if (!exam) {
     renderHome();
-    return;
-  }
-  if (!question) {
+  } else if (!question) {
     renderExam(exam);
-    return;
+  } else {
+    renderQuestion(exam, question);
   }
-  renderQuestion(exam, question);
+  paintSupport(now);
+  shownMonth = monthKey(now);
 }
 
 function renderHome(): void {
@@ -73,7 +83,7 @@ function renderHome(): void {
   for (const exam of data.exams) {
     const item = document.createElement("li");
     const link = document.createElement("a");
-    link.href = `#/${exam.id}`;
+    link.href = `/#/${exam.id}`;
     link.textContent = `${exam.year} ${exam.season} ${exam.section}`;
     item.append(link);
     list.append(item);
@@ -92,7 +102,7 @@ function renderExam(exam: Exam): void {
   for (const question of exam.questions) {
     const item = document.createElement("li");
     const link = document.createElement("a");
-    link.href = `#/${exam.id}/${question.number}`;
+    link.href = `/#/${exam.id}/${question.number}`;
     link.textContent = `問${question.number}`;
     item.append(link);
     list.append(item);
@@ -283,6 +293,14 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return element;
 }
 
+function syncFunding(now: number): void {
+  const next = fundingRefresh(shownMonth, now, showingCosts(location.pathname, location.hash));
+  if (!next.changed) return;
+  shownMonth = next.month;
+  if (next.rerenderCosts) renderCostsPage(main!, now);
+  paintSupport(now);
+}
+
 function paintTimer(): void {
   const now = Date.now();
   const left = remainingMs(timer, now);
@@ -319,5 +337,9 @@ document.querySelector("a.skip")?.addEventListener("click", (event) => {
 
 window.addEventListener("hashchange", render);
 render();
-tick = window.setInterval(paintTimer, 1000);
+tick = window.setInterval(() => {
+  const now = Date.now();
+  paintTimer();
+  syncFunding(now);
+}, 1000);
 void tick;

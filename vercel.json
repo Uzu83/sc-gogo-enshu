@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/costs", "destination": "/index.html" }]
+}
