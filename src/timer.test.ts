@@ -32,8 +32,10 @@ describe("timer", () => {
   });
 
   it("formats the remaining duration with hours, minutes, and seconds", () => {
-    expect(formatRemaining(0)).toMatch(/0:00:00/);
-    expect(formatRemaining(75 * 60 * 1000)).toMatch(/1:15:00/);
-    expect(formatRemaining(50_000)).toMatch(/0:00:50/);
+    expect(formatRemaining(0)).toBe("0:00:00");
+    expect(formatRemaining(75 * 60 * 1000)).toBe("1:15:00");
+    expect(formatRemaining(50_000)).toBe("0:00:50");
+    expect(formatRemaining(1)).toBe("0:00:01");
+    expect(formatRemaining(150 * 60 * 1000)).toBe("2:30:00");
   });
 });
